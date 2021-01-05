@@ -1,0 +1,25 @@
+<configuration scan="true" scanPeriod="60 seconds" debug="false">
+    <property name="APP_NAME" value="gateway"/>
+    <property name="CONSOLE_PATTERN"
+              value="[%highlight(%-5level)] %green([%d{MM-dd HH:mm:ss.SSS}]) %cyan(%logger{100}) - %msg %n"/>
+    <property name="FILE_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"/>
+    <contextName>${APP_NAME}</contextName>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${CONSOLE_PATTERN}</pattern>
+        </encoder>
+    </appender>
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>${user.home}/logs/gateway.log</file>
+        <append>true</append>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${FILE_PATTERN}</pattern>
+        </encoder>
+    </appender>
+    <logger name="io.netty" level="INFO"/>
+    <logger name="reactor.netty" level="INFO"/>
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>

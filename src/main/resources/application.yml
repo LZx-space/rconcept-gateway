@@ -1,0 +1,25 @@
+server:
+  port: 8080
+  error:
+    include-exception: false
+    # 异常时是否打印错误栈信息
+    include-stacktrace: never
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: baidu_rewrite
+          uri: https://www.baidu.com
+          predicates:
+            - Path=/baidu/**
+sftp:
+  cluster:
+    connection-timeout-millis: 10000
+    remotes:
+      - username: mysftp
+        password: mysftp
+        host: 127.0.0.1
+        port: 22
+        sftp-base-dir: /sftp/lzx/
+
+
