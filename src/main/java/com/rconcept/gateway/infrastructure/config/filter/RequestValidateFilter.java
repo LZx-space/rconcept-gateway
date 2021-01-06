@@ -9,9 +9,11 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.NettyDataBuffer;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
+import org.springframework.http.MediaType;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
-import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -25,11 +27,11 @@ import java.util.Objects;
  */
 @Slf4j
 @Component
-public class RequestBodyValidateFilter implements GlobalFilter, Ordered {
+public class RequestValidateFilter implements GlobalFilter, Ordered {
 
-    private final List<RequestBodyValidator> validators;
+    private final List<RequestValidator> validators;
 
-    public RequestBodyValidateFilter(List<RequestBodyValidator> validators) {
+    public RequestValidateFilter(List<RequestValidator> validators) {
         Objects.requireNonNull(validators, "请求体验证器不能为空");
         this.validators = validators;
     }
@@ -38,13 +40,18 @@ public class RequestBodyValidateFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         // body只能被获取一次，此处创建一个ServerHttpRequest的新的实现做包装以躲避该规则
         // 实现方式参考ServerWebExchangeUtils#cacheRequestBody
-        ServerHttpResponse response = exchange.getResponse();
-        NettyDataBufferFactory factory = (NettyDataBufferFactory) response.bufferFactory();
-        return DataBufferUtils.join(exchange.getRequest().getBody())
+        ServerHttpRequest request = exchange.getRequest();
+        MultiValueMap<String, String> queryParams = request.getQueryParams();
+        MediaType contentType = request.getHeaders().getContentType();
+        NettyDataBufferFactory factory = (NettyDataBufferFactory) exchange.getResponse().bufferFactory();
+        return DataBufferUtils.join(request.getBody())
                 .defaultIfEmpty(factory.wrap(new EmptyByteBuf(factory.getByteBufAllocator())))
                 .map(dataBuffer -> {
                     try {
-                        validators.forEach(validator -> validator.commence(dataBuffer));
+                        validators.forEach(validator -> {
+                            validator.params(queryParams);
+                            validator.body(contentType, dataBuffer);
+                        });
                     } catch (ValidateException e) {
                         log.warn("验证请求数据异常", e);
                         throw e;
@@ -53,10 +60,8 @@ public class RequestBodyValidateFilter implements GlobalFilter, Ordered {
 
                         @Override
                         public Flux<DataBuffer> getBody() {
-                            return Mono.fromSupplier(() -> (DataBuffer) factory.wrap(
-                                    ((NettyDataBuffer) dataBuffer)
-                                            .getNativeBuffer()
-                                            .retainedSlice())
+                            return Mono.fromSupplier(() -> (DataBuffer) factory
+                                    .wrap(((NettyDataBuffer) dataBuffer).getNativeBuffer().retainedSlice())
                             ).flux();
                         }
                     };

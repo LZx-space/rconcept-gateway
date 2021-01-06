@@ -7,14 +7,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.MultiValueMap;
 
 /**
- * XSS攻击验证器
+ * SQL injection验证器
  *
  * @author LZx
- * @since 2020/12/31
+ * @since 2021/1/6
  */
 @Slf4j
 @Component
-public class XssValidator extends AbstractRequestValidator {
+public class SqlInjectValidator extends AbstractRequestValidator {
 
     @Override
     protected void json(String json) throws ValidateException {
@@ -28,7 +28,7 @@ public class XssValidator extends AbstractRequestValidator {
 
     @Override
     public int getOrder() {
-        return 0;
+        return 1;
     }
 
 }

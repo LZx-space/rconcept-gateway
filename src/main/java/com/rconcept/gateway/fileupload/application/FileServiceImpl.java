@@ -6,8 +6,8 @@ import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,19 +47,14 @@ public class FileServiceImpl implements FileService {
             DataBufferUtils.write(filePart.content(), channel, 0).subscribe();
             return tempFile;
         }).map(tempFile -> {
+            File file = tempFile.toFile();
+            String fileAbsolutePath = file.getAbsolutePath();
+            String filename = file.getName();
             // TODO check size、format etc.
-            String filename = tempFile.toFile().getName();
-            InputStream inputStream = null;
             try {
-                inputStream = Files.newInputStream(tempFile);
-                sftpClusterHelper.upload(inputStream, filename);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+                sftpClusterHelper.upload(fileAbsolutePath, filename);
             } finally {
                 try {
-                    if (inputStream != null) {
-                        inputStream.close();
-                    }
                     Files.delete(tempFile);
                 } catch (IOException ignored) {
                 }
