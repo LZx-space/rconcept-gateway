@@ -33,7 +33,7 @@ public class SftpClusterProperties implements InitializingBean {
     /**
      * SFTP连接配置信息集合
      */
-    private List<SftpUtils.RemoteInfo> remotes = new ArrayList<>();
+    private List<SftpUtils.Server> remotes = new ArrayList<>();
 
     @Override
     public void afterPropertiesSet() {

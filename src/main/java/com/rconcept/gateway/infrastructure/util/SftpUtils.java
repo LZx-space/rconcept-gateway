@@ -21,14 +21,14 @@ public class SftpUtils {
     /**
      * 创建会话，<strong style="color:red;">不再使用后必须关闭</strong>
      *
-     * @param remoteInfo 连接用户
+     * @param server 连接服务器的信息
      * @return 连接会话
      * @throws JSchException JSch异常
      */
-    public static Session session(RemoteInfo remoteInfo) throws JSchException {
+    public static Session session(Server server) throws JSchException {
         JSch jsch = new JSch();
-        Session session = jsch.getSession(remoteInfo.username, remoteInfo.host, remoteInfo.port);
-        session.setPassword(remoteInfo.password);
+        Session session = jsch.getSession(server.username, server.host, server.port);
+        session.setPassword(server.password);
         session.setConfig("StrictHostKeyChecking", "no");
         return session;
     }
@@ -80,8 +80,8 @@ public class SftpUtils {
      * @param remoteDir               远程目标文件夹
      * @param connectionTimeoutMillis 连接超时时间
      * @return 所有LS出来实体的集合
-     * @throws JSchException
-     * @throws SftpException
+     * @throws JSchException JSCH的异常
+     * @throws SftpException SFTP来源的异常
      */
     @SuppressWarnings("unchecked")
     public static Vector<ChannelSftp.LsEntry> ls(Session session, final String remoteDir, int connectionTimeoutMillis) throws JSchException, SftpException {
@@ -142,9 +142,9 @@ public class SftpUtils {
      * @param errorOut                异常的输出流
      * @param connectionTimeoutMillis 连接超时时间
      * @return 0成功 1异常
-     * @throws JSchException
-     * @throws IOException
-     * @throws InterruptedException
+     * @throws JSchException        JSCH的异常
+     * @throws IOException          读取命令执行结果异常
+     * @throws InterruptedException 休眠读取命令执行结果的线程时被打断
      */
     public static int execCommand(Session session, String command, OutputStream successOut, OutputStream errorOut, int connectionTimeoutMillis) throws JSchException, InterruptedException, IOException {
         if (!session.isConnected()) {
@@ -152,7 +152,7 @@ public class SftpUtils {
         }
         ChannelExec channelExec = channelExec(session, command, errorOut, connectionTimeoutMillis);
         try (InputStream is = channelExec.getInputStream()) {
-            byte[] buf = new byte[1024];
+            byte[] buf = new byte[512];
             while (true) {
                 while (is.available() > 0) {
                     int len = is.read(buf);
@@ -168,7 +168,7 @@ public class SftpUtils {
                     }
                     return channelExec.getExitStatus();
                 }
-                Thread.sleep(500);
+                Thread.sleep(100);
             }
         } finally {
             if (successOut != null) {
@@ -217,7 +217,7 @@ public class SftpUtils {
      */
     @Getter
     @Setter
-    public static class RemoteInfo {
+    public static class Server {
 
         private String username;
 
