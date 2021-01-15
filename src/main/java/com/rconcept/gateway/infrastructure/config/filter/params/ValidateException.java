@@ -1,4 +1,4 @@
-package com.rconcept.gateway.infrastructure.config.filter;
+package com.rconcept.gateway.infrastructure.config.filter.params;
 
 /**
  * @author LZx

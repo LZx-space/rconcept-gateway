@@ -1,4 +1,4 @@
-package com.rconcept.gateway.infrastructure.config.filter;
+package com.rconcept.gateway.infrastructure.config.filter.params;
 
 import io.netty.buffer.EmptyByteBuf;
 import lombok.extern.slf4j.Slf4j;
@@ -27,11 +27,11 @@ import java.util.Objects;
  */
 @Slf4j
 @Component
-public class RequestValidateFilter implements GlobalFilter, Ordered {
+public class ParamsValidateFilter implements GlobalFilter, Ordered {
 
-    private final List<RequestValidator> validators;
+    private final List<ParamsValidator> validators;
 
-    public RequestValidateFilter(List<RequestValidator> validators) {
+    public ParamsValidateFilter(List<ParamsValidator> validators) {
         Objects.requireNonNull(validators, "请求体验证器不能为空");
         this.validators = validators;
     }

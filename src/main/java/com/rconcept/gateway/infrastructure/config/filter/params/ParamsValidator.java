@@ -1,4 +1,4 @@
-package com.rconcept.gateway.infrastructure.config.filter;
+package com.rconcept.gateway.infrastructure.config.filter.params;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -9,7 +9,7 @@ import org.springframework.util.MultiValueMap;
  * @author LZx
  * @since 2020/12/31
  */
-public interface RequestValidator extends Ordered {
+public interface ParamsValidator extends Ordered {
 
     /**
      * 验证查询参数

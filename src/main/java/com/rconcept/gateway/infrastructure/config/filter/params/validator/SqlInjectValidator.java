@@ -1,7 +1,7 @@
-package com.rconcept.gateway.infrastructure.config.filter.validator;
+package com.rconcept.gateway.infrastructure.config.filter.params.validator;
 
-import com.rconcept.gateway.infrastructure.config.filter.AbstractRequestValidator;
-import com.rconcept.gateway.infrastructure.config.filter.ValidateException;
+import com.rconcept.gateway.infrastructure.config.filter.params.AbstractParamsValidator;
+import com.rconcept.gateway.infrastructure.config.filter.params.ValidateException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MultiValueMap;
@@ -14,7 +14,7 @@ import org.springframework.util.MultiValueMap;
  */
 @Slf4j
 @Component
-public class SqlInjectValidator extends AbstractRequestValidator {
+public class SqlInjectValidator extends AbstractParamsValidator {
 
     @Override
     protected void json(String json) throws ValidateException {

@@ -1,4 +1,4 @@
-package com.rconcept.gateway.infrastructure.config.filter;
+package com.rconcept.gateway.infrastructure.config.filter.params;
 
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.MediaType;
@@ -11,7 +11,7 @@ import java.nio.charset.StandardCharsets;
  * @author LZx
  * @since 2021/1/6
  */
-public abstract class AbstractRequestValidator implements RequestValidator {
+public abstract class AbstractParamsValidator implements ParamsValidator {
 
     @Override
     public final void body(MediaType contentType, DataBuffer body) throws ValidateException {
