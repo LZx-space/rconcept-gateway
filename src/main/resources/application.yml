@@ -15,16 +15,14 @@ spring:
 sftp:
   cluster:
     connection-timeout-millis: 10000
-    remotes:
-      - username: mysftp
-        password: mysftp
+    servers:
+      - username: lzx
+        password: lzx
         host: 127.0.0.1
         port: 22
-        sftp-base-dir: /sftp/lzx/
-      - username: mysftp
-        password: mysftp
+      - username: lzx
+        password: lzx
         host: 127.0.0.1
         port: 22
-        sftp-base-dir: /sftp/lzx/
 
 

@@ -6,7 +6,6 @@ import lombok.Setter;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
-import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,24 +32,12 @@ public class SftpClusterProperties implements InitializingBean {
     /**
      * SFTP连接配置信息集合
      */
-    private List<SftpUtils.Server> remotes = new ArrayList<>();
+    private List<SftpUtils.Server> servers = new ArrayList<>();
 
     @Override
     public void afterPropertiesSet() {
-        if (remotes.size() == 0) {
+        if (servers.size() == 0) {
             throw new IllegalArgumentException(SftpClusterProperties.SFTP_CLUSTER_PREFIX + ".remotes至少需要一个SFTP连接配置");
         }
-        remotes.forEach(e -> {
-            String sftpBaseDir = e.getSftpBaseDir();
-            if (!StringUtils.hasLength(sftpBaseDir)) {
-                throw new IllegalArgumentException("目的SFTP文件夹不能为空");
-            }
-            if (!sftpBaseDir.startsWith(PATH_SEPARATOR)) {
-                throw new IllegalArgumentException("目的SFTP文件夹路径必须以/开始");
-            }
-            if (!sftpBaseDir.endsWith(PATH_SEPARATOR)) {
-                throw new IllegalArgumentException("目的SFTP基础文件夹路径必须以/结束");
-            }
-        });
     }
 }

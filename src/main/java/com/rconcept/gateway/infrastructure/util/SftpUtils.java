@@ -3,23 +3,32 @@ package com.rconcept.gateway.infrastructure.util;
 import com.jcraft.jsch.*;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Vector;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 /**
  * @author LZx
  * @since 2020/12/31
  */
+@Slf4j
 public class SftpUtils {
 
     private SftpUtils() {
     }
 
     /**
-     * 创建会话，<strong style="color:red;">不再使用后必须关闭</strong>
+     * 创建会话
+     * <ul style="color:red;">
+     *     <li>一个目标服务器一个会话即可</li>
+     *     <li>一个目标服务器的多次操作，多个channel即可</li>
+     *     <li>不再使用后必须关闭，但通常来讲非一次性行为可以不关闭等待下次使用</li>
+     * </ul>
      *
      * @param server 连接服务器的信息
      * @return 连接会话
@@ -38,38 +47,40 @@ public class SftpUtils {
      *
      * @param session                 会话
      * @param inputStream             待上传文件的流
-     * @param remoteFile              上传文件绝对路径
+     * @param remoteAbstractFile      相对SFTP根目录的文件路径
      * @param connectionTimeoutMillis 连接超时时间
      */
-    public static void uploadFile(Session session, InputStream inputStream, String remoteFile, int connectionTimeoutMillis) throws JSchException, SftpException {
-        if (!session.isConnected()) {
-            session.connect(connectionTimeoutMillis);
-        }
+    public static void uploadFile(Session session, InputStream inputStream, String remoteAbstractFile, int connectionTimeoutMillis) throws JSchException, SftpException {
         ChannelSftp channelSftp = channelSftp(session, connectionTimeoutMillis);
         channelSftp.setFilenameEncoding("UTF-8");
         try {
-            channelSftp.put(inputStream, remoteFile);
+            channelSftp.put(inputStream, remoteAbstractFile);
         } finally {
             channelSftp.disconnect();
         }
     }
 
     /**
-     * 上传文件到远程服务器
+     * 上传文件到远程服务器<br>
+     * <strong style="color:red;">推荐一个目标服务器使用一个会话</strong>
      *
-     * @param session                 会话
-     * @param targetFile              待上传文件
-     * @param remoteDir               上传目的地文件夹
-     * @param connectionTimeoutMillis 连接超时时间
+     * @param session       会话
+     * @param targetFile    待上传文件
+     * @param remoteDir     SFTP的文件夹
+     * @param timeoutMillis 连接超时时间
      */
-    public static void uploadFile(Session session, String targetFile, String remoteDir, int connectionTimeoutMillis) throws JSchException, SftpException {
-        if (!session.isConnected()) {
-            session.connect(connectionTimeoutMillis);
-        }
-        ChannelSftp channelSftp = channelSftp(session, connectionTimeoutMillis);
+    public static void uploadFile(Session session, String targetFile, String remoteDir, boolean mkdir, int timeoutMillis) throws JSchException, SftpException {
+        ChannelSftp channelSftp = channelSftp(session, timeoutMillis);
         channelSftp.setFilenameEncoding("UTF-8");
         try {
-            channelSftp.put(targetFile, remoteDir);
+            long start = System.currentTimeMillis();
+            if (mkdir) {
+                cdOrMkdirThenCd(channelSftp, remoteDir);
+                channelSftp.put(targetFile, "./");
+            } else {
+                channelSftp.put(targetFile, remoteDir);
+            }
+            log.info("--上传文件-\t{}", System.currentTimeMillis() - start);
         } finally {
             channelSftp.disconnect();
         }
@@ -85,9 +96,6 @@ public class SftpUtils {
      */
     @SuppressWarnings("unchecked")
     public static Vector<ChannelSftp.LsEntry> ls(Session session, final String remoteDir, int connectionTimeoutMillis) throws JSchException, SftpException {
-        if (!session.isConnected()) {
-            session.connect(connectionTimeoutMillis);
-        }
         ChannelSftp channelSftp = channelSftp(session, connectionTimeoutMillis);
         channelSftp.setFilenameEncoding("UTF-8");
         try {
@@ -147,9 +155,6 @@ public class SftpUtils {
      * @throws InterruptedException 休眠读取命令执行结果的线程时被打断
      */
     public static int execCommand(Session session, String command, OutputStream successOut, OutputStream errorOut, int connectionTimeoutMillis) throws JSchException, InterruptedException, IOException {
-        if (!session.isConnected()) {
-            session.connect(connectionTimeoutMillis);
-        }
         ChannelExec channelExec = channelExec(session, command, errorOut, connectionTimeoutMillis);
         try (InputStream is = channelExec.getInputStream()) {
             byte[] buf = new byte[512];
@@ -182,34 +187,75 @@ public class SftpUtils {
     /**
      * 创建SFTP通道
      *
-     * @param session                 会话
-     * @param connectionTimeoutMillis 连接超时时间
+     * @param session       会话
+     * @param timeoutMillis 连接超时时间
      * @return {@link ChannelSftp}
      * @throws JSchException 创建channel异常或者连接异常
      */
-    private static ChannelSftp channelSftp(Session session, int connectionTimeoutMillis) throws JSchException {
+    public static ChannelSftp channelSftp(Session session, int timeoutMillis) throws JSchException {
+        synchronized (session.getHost()) {
+            if (!session.isConnected()) {
+                session.connect(timeoutMillis);
+            }
+        }
         ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
-        channel.connect(connectionTimeoutMillis);
+        channel.connect(timeoutMillis);
         return channel;
     }
 
     /**
      * 创建执行命令的通道
      *
-     * @param session                 会话
-     * @param command                 命令
-     * @param errorOutputStream       异常输出流
-     * @param connectionTimeoutMillis 连接超时时间
+     * @param session           会话
+     * @param command           命令
+     * @param errorOutputStream 异常输出流
+     * @param timeoutMillis     连接超时时间
      * @return {@link ChannelExec}
      * @throws JSchException 创建channel异常或者连接异常
      */
-    private static ChannelExec channelExec(Session session, String command, OutputStream errorOutputStream, int connectionTimeoutMillis) throws JSchException {
+    public static ChannelExec channelExec(Session session, String command, OutputStream errorOutputStream, int timeoutMillis) throws JSchException {
+        synchronized (session.getHost()) {
+            if (!session.isConnected()) {
+                session.connect(timeoutMillis);
+            }
+        }
         ChannelExec channel = (ChannelExec) session.openChannel("exec");
         channel.setCommand(command);
         channel.setInputStream(null);
         channel.setErrStream(errorOutputStream);
-        channel.connect(connectionTimeoutMillis);
+        channel.connect(timeoutMillis);
         return channel;
+    }
+
+    /**
+     * cd目录，如果目录不存在则mkdir再cd，因此cd和mkdir块将同步，所以推荐直接上传到预先创建的文件夹
+     * 并使用{@link ChannelSftp#put(String, String)}这类直接指定多级路径目录的方法
+     *
+     * @param channelSftp channel
+     * @param remoteDir   远端文件夹路径
+     * @throws SftpException cd/mkdir异常
+     */
+    private static void cdOrMkdirThenCd(ChannelSftp channelSftp, String remoteDir) throws SftpException {
+        remoteDir = remoteDir.replace("\\", "/");
+        boolean absoluteDir = remoteDir.startsWith("/");
+        String tmpDir = absoluteDir ? remoteDir.substring(1) : remoteDir;
+        String[] dirs = tmpDir.split("/");
+        for (int i = 0, len = dirs.length; i < len; i++) {
+            String dir = i == 0 && absoluteDir ? "/" + dirs[i] : dirs[i];
+            // 避免不同线程进入不存在的目录时，另一个线程正在创建该目录
+            synchronized (SftpUtils.class) {
+                try {
+                    channelSftp.cd(dir);
+                } catch (SftpException e) {
+                    if (e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE) {
+                        channelSftp.mkdir(dir);
+                        channelSftp.cd(dir);
+                        continue;
+                    }
+                    throw e;
+                }
+            }
+        }
     }
 
     /**
@@ -227,11 +273,36 @@ public class SftpUtils {
 
         private int port;
 
-        /**
-         * Sftp或其子目录的绝对路径，总是以/开头和结束
-         */
-        private String sftpBaseDir;
+    }
 
+    public static void main(String[] args) throws JSchException {
+        Server server = new Server();
+        server.username = "lzx";
+        server.password = "lzx";
+        server.host = "127.0.0.1";
+        server.port = 22;
+
+
+        Session session = SftpUtils.session(server);
+        AtomicInteger count = new AtomicInteger();
+        try {
+            IntStream.range(1, 5).parallel().forEach(value -> {
+                synchronized (Integer.valueOf(1)) {
+                    System.out.println("--s------");
+                    System.out.println("-----\t" + value);
+                    System.out.println("--e------\n");
+                }
+//                try {
+//                    SftpUtils.uploadFile(session, "C:\\Users\\LZx\\Desktop\\PoolException.java", "test/t1/t2", true, 3000);
+//                    count.getAndIncrement();
+//                } catch (Exception e) {
+//                    throw new RuntimeException(e);
+//                }
+            });
+        } finally {
+            System.out.println("---count-" + count.get());
+            session.disconnect();
+        }
     }
 
 }

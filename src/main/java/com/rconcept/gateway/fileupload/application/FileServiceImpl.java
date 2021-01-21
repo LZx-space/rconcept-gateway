@@ -1,12 +1,12 @@
 package com.rconcept.gateway.fileupload.application;
 
 import com.rconcept.gateway.infrastructure.support.SftpClusterHelper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
@@ -19,6 +19,7 @@ import java.time.format.DateTimeFormatter;
  * @author LZx
  * @since 2021/1/5
  */
+@Slf4j
 @Service
 public class FileServiceImpl implements FileService {
 
@@ -45,21 +46,8 @@ public class FileServiceImpl implements FileService {
                 throw new RuntimeException(e);
             }
             DataBufferUtils.write(filePart.content(), channel, 0).subscribe();
-            return tempFile;
-        }).map(tempFile -> {
-            File file = tempFile.toFile();
-            String fileAbsolutePath = file.getAbsolutePath();
-            String filename = file.getName();
-            // TODO check size、format etc.
-            try {
-                sftpClusterHelper.upload(fileAbsolutePath, filename);
-            } finally {
-                try {
-                    Files.delete(tempFile);
-                } catch (IOException ignored) {
-                }
-            }
-            return filename;
+            sftpClusterHelper.upload(tempFile, "test/t1/");
+            return tempFile.getFileName().toString();
         });
     }
 
